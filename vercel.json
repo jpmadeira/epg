@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "api/epg.py": {
+      "runtime": "python3.12"
+    }
+  },
+  "routes": [
+    { "src": "/epg.xml", "dest": "/api/epg.xml" }
+  ]
+}
