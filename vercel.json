@@ -1,5 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "api/epg.py": {
+      "maxDuration": 60
+    }
+  },
   "rewrites": [
     { "source": "/epg.xml", "destination": "/api/epg" }
   ]

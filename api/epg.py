@@ -82,39 +82,12 @@ def parse_program_lines(html):
     return rows
 
 
-def discover_grade_pages(main_html):
-    """
-    Procura links de 'Ver Grade de Programação' ou URLs gdc relacionadas.
-    O canal principal é sempre incluído.
-    """
-    parser = Parser()
-    parser.feed(main_html)
-
-    pages = {LINEUP_URL}
-    for href in parser.links:
-        absolute = urljoin(LINEUP_URL, href)
-        low = absolute.lower()
-        if "lineup.tv.br" in low and (
-            "gdc.php" in low or "grade" in low or "program" in low
-        ):
-            pages.add(absolute)
-
-    return list(pages)
-
-
 def collect_programs():
-    # Fazemos múltiplas consultas à página do canal/grade.
-    # Se o Line-UP disponibilizar a grade de vários dias em uma única
-    # página, todas as datas encontradas serão aproveitadas.
-    main = fetch(LINEUP_URL)
-    pages = discover_grade_pages(main)
-
-    programs = []
-    for page in pages:
-        try:
-            programs.extend(parse_program_lines(fetch(page)))
-        except Exception:
-            continue
+    # Uma única requisição à página do canal (idCanal já identifica o
+    # canal certo). Nada de seguir links da página: isso disparava
+    # dezenas de requisições extras e travava a função (timeout).
+    html = fetch(LINEUP_URL)
+    programs = parse_program_lines(html)
 
     # Remove duplicados.
     unique = {}
@@ -190,11 +163,6 @@ def build_xml(programs):
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
-        if self.path.split("?", 1)[0] not in ("/api/epg", "/api/epg.xml"):
-            self.send_response(404)
-            self.end_headers()
-            return
-
         try:
             programs = collect_programs()
 
