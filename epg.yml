@@ -1,0 +1,60 @@
+name: Atualizar EPG
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"   # a cada 6 horas (UTC)
+  workflow_dispatch:         # botão "Run workflow" para rodar na mão
+
+permissions:
+  contents: write
+
+jobs:
+  grab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Baixar raspadores do iptv-org/epg
+        run: |
+          git clone --depth 1 https://github.com/iptv-org/epg.git epg
+          cd epg && npm install
+
+      - name: Montar lista de canais a partir da M3U
+        env:
+          M3U_URL: ${{ secrets.M3U_URL }}
+        run: python build_channels.py build "$M3U_URL"
+
+      - name: Baixar programação (3 dias)
+        working-directory: epg
+        run: |
+          npm run grab --- \
+            --channels=../channels.xml \
+            --output=../raw.xml \
+            --days=3 \
+            --maxConnections=5
+
+      - name: Ajustar ids para os tvg-id da playlist
+        run: python build_channels.py rename raw.xml guide.xml.gz
+
+      - name: Publicar no branch "guide"
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir out
+          cp guide.xml.gz faltando.txt channels.xml out/
+          cd out
+          git init -q -b guide
+          git config user.name "epg-bot"
+          git config user.email "epg-bot@users.noreply.github.com"
+          git add .
+          git commit -q -m "EPG $(date -u '+%F %H:%M') UTC"
+          git push -f "https://x-access-token:${TOKEN}@github.com/${{ github.repository }}.git" guide
